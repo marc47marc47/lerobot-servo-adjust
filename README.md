@@ -2,7 +2,7 @@
 
 使用 Rust 的 Axum 框架建立一個 Web 服務，用於對 LeRobot 的校正檔（JSON 格式）進行「伺服馬達參數微調」。此工具支援 follower 與 leader 兩種類型的配置，並透過 Askama 模板引擎提供一個簡單直觀的網頁使用者介面。
 
-![LeRobot Arm UI](./lerobot-arm.jpg)
+![LeRobot Arm UI](./lerobot-servo-adjust.jpg)
 
 ## 主要功能
 
