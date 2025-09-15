@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<p><a href="/">← 返回首頁</a></p>
+<h2>{{ kind }} / {{ name }}</h2>
+
+{% if error.is_some() %}
+  <p style="color:#b00020">錯誤：{{ error.as_ref().unwrap() }}</p>
+{% endif %}
+
+<form method="post">
+  <p>
+    <label for="json">Profile JSON</label><br>
+    <textarea id="json" name="json" rows="24" style="width:100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;">{{ json }}</textarea>
+  </p>
+  <p>
+    <button type="submit">儲存（PUT）</button>
+  </p>
+</form>
+
+<form method="post">
+  <input type="hidden" name="action" value="delete" />
+  <button type="submit" onclick="return confirm('確定刪除此 profile 嗎？')">刪除</button>
+  <span style="color:#666">（不可復原，建議先備份）</span>
+  </form>
+{% endblock %}
+

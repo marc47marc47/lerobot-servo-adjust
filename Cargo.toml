@@ -1,0 +1,33 @@
+[package]
+name = "lerobot-servo-adjust"
+version = "0.1.0"
+edition = "2024"
+default-run = "lerobot-servo-adjust"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+walkdir = "2"
+askama = "0.12"
+askama_axum = "0.4"
+tower-http = { version = "0.5", features = ["trace"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[[bin]]
+name = "lerobot-servo-adjust"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "s"
+
+[dev-dependencies]
+tempfile = "3"
+tower = "0.5"

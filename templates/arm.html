@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<style>
+  .viewer { position: relative; width: 100%; overflow: visible; border: 1px solid #eee; background: #fff; }
+  .arm-wrap { position: relative; display: inline-block; }
+  .arm-wrap img { display: block; width: 100%; height: auto; }
+  .hotspot { position: absolute; z-index: 2; width: 28px; height: 28px; border-radius: 50%; background: #2196F3; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; cursor:pointer; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  .hotspot.sel { background: #E91E63; }
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+  .panel { position: absolute; top: 9rem; right: 1rem; width: 480px; max-width: 90%; z-index: 10; padding: 1rem; border: 3px solid #ccc; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,.15); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .panel h3 { cursor: move; user-select: none; -webkit-user-select: none; margin-top: 0; }
+  .btn { display:inline-block; padding:.35rem .6rem; margin:.2rem .3rem .2rem 0; border:1px solid #ccc; background:#f7f7f7; color:#333; text-decoration:none; border-radius:6px; }
+  .btn:hover { background:#ececec; }
+  .btn.active { background:#2196F3; color:#fff; border-color:#1976D2; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; }
+  label { display:block; font-size: .9rem; color:#444; }
+  input[type=number] { width: 100%; padding: .4rem .5rem; }
+  .row { margin:.5rem 0; }
+  .hotspot:hover { transform: translate(-50%, -50%) scale(1.05); }
+  .hotspot::after { content: attr(data-label); position: absolute; top: -28px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.7); color: #fff; padding: 2px 6px; font-size: 12px; border-radius: 3px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
+  .hotspot:hover::after { opacity: 1; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .zoom3 { transform: scale(3); transform-origin: top left; }
+
+  /* knob */
+  .knob { width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(#2196F3 0deg, #2196F3 0deg, #e0e0e0 0deg 360deg); position: relative; margin: .25rem auto; box-shadow: inset 0 2px 6px rgba(0,0,0,.2); }
+  .knob .needle { position: absolute; left: 50%; top: 00%; width: 2px; height: 46%; background: #333; transform-origin: 50% 100%; transform: translate(-50%, 0) rotate(-135deg); box-shadow: 0 0 0 2px #fff; }
+  .knob .cap { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; background: #fff; border-radius: 50%; border: 2px solid #999; transform: translate(-50%, -50%); }
+  .knob-wrap { text-align: center; }
+  .knob-value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: .95rem; }
+</style>
+
+<p><a href="/">Back to Home</a></p>
+<h2>Arm Control: {{ kind }} / {{ name }}</h2>
+
+<div class="row">
+  <label>Switch Profile</label>
+  <div>
+    {% for btn in leaders_btns %}
+      <a class="btn {% if btn.1 %}active{% endif %}" href="/arm/teleoperators/{{ btn.0 }}">teleoperators/{{ btn.0 }}</a>
+    {% endfor %}
+    {% for btn in robots_btns %}
+      <a class="btn {% if btn.1 %}active{% endif %}" href="/arm/robots/{{ btn.0 }}">robots/{{ btn.0 }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="layout">
+  <div class="viewer">
+    <div class="arm-wrap zoom3">
+      <img src="/assets/lerobot-arm.jpg" alt="lerobot arm" />
+      {% for h in hotspots %}
+        <a class="hotspot {% if h.selected %}sel{% endif %}" style="top: {{ h.top }}%; left: {{ h.left }}%; transform: translate(-50%, -50%); text-decoration:none;" href="?sel={{ h.n }}" title="{{ label_prefix }}{{ h.n }}" data-label="{{ h.label }}">{{ label_prefix }}{{ h.n }}</a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    {% if error.is_some() %}
+      <p style="color:#b00020">Error: {{ error.as_ref().unwrap() }}</p>
+    {% endif %}
+    {% if message.is_some() %}
+      <p style="color:#2e7d32">{{ message.as_ref().unwrap() }}</p>
+    {% endif %}
+
+    {% if has_selection %}
+      {% if has_joint %}
+        <h3>Edit {{ label_prefix }}{{ selected_n }} ({{ joint_label }})</h3>
+        <form method="post" onsubmit="return validateForm(this)">
+          <input type="hidden" name="id" value="{{ id_v }}" />
+          <div class="grid">
+            <div>
+              <label>drive_mode</label>
+              <select name="drive_mode">
+                <option value="0" {% if drive_mode_v == 0 %}selected{% endif %}>0 - Position</option>
+                <option value="1" {% if drive_mode_v == 1 %}selected{% endif %}>1 - Velocity</option>
+                <option value="2" {% if drive_mode_v == 2 %}selected{% endif %}>2 - Torque</option>
+              </select>
+              <small>0: Position, 1: Velocity, 2: Torque (adjust per hardware).</small>
+            </div>
+
+            <div class="knob-wrap">
+              <label>homing_offset</label>
+              <input type="hidden" name="homing_offset" id="homing_offset" value="{{ homing_offset_v }}" />
+              <div class="knob" data-target="homing_offset" data-min="-4096" data-max="4096">
+                <div class="needle"></div><div class="cap"></div>
+              </div>
+              <div class="knob-value" id="homing_offset_val"></div>
+            </div>
+
+            <div class="knob-wrap">
+              <label>range_min</label>
+              <input type="hidden" name="range_min" id="range_min" value="{{ range_min_v }}" />
+              <div class="knob" data-target="range_min" data-min="0" data-max="4095">
+                <div class="needle"></div><div class="cap"></div>
+              </div>
+              <div class="knob-value" id="range_min_val"></div>
+            </div>
+
+            <div class="knob-wrap">
+              <label>range_max</label>
+              <input type="hidden" name="range_max" id="range_max" value="{{ range_max_v }}" />
+              <div class="knob" data-target="range_max" data-min="0" data-max="4095">
+                <div class="needle"></div><div class="cap"></div>
+              </div>
+              <div class="knob-value" id="range_max_val"></div>
+            </div>
+          </div>
+          <div class="row">
+            <button type="submit" {% if read_only %}disabled{% endif %}>Save (PATCH)</button>
+            <a href="/profiles/{{ kind }}/{{ name }}" style="margin-left:1rem">Edit JSON</a>
+          </div>
+        </form>
+      {% else %}
+        <p>Selected id not found in this profile.</p>
+      {% endif %}
+    {% else %}
+        <p>Click hotspots {{ label_prefix }}1–{{ label_prefix }}6 to select a servo.</p>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function validateForm(form) {
+  var id = parseInt(form.id.value, 10);
+  var rmin = parseInt(form.range_min.value, 10);
+  var rmax = parseInt(form.range_max.value, 10);
+  var msg = [];
+  if (!(id > 0)) msg.push('id must be > 0');
+  if (!(rmin < rmax)) msg.push('range_min must be < range_max');
+  if (msg.length) { alert(msg.join('\n')); return false; }
+  return true;
+}
+
+function initKnob(knob){
+  const targetId = knob.getAttribute('data-target');
+  const input = document.getElementById(targetId);
+  const valBox = document.getElementById(targetId + '_val');
+  const min = parseInt(knob.getAttribute('data-min'),10);
+  const max = parseInt(knob.getAttribute('data-max'),10);
+  function valToAngle(v){
+    const t = (v - min) / (max - min);
+    return -135 + t * 270;
+  }
+  function angleToVal(a){
+    let t = (a + 135) / 270; if(t<0) t=0; if(t>1) t=1; return Math.round(min + t*(max-min));
+  }
+  function setVal(v){
+    input.value = v;
+    valBox.textContent = v;
+    const t = (v - min) / (max - min);
+    const fill = Math.max(0, Math.min(270, t * 270));
+    knob.style.background = `conic-gradient(#2196F3 ${fill}deg, #e0e0e0 0deg 360deg)`;
+    knob.querySelector('.needle').style.transform = `translate(-50%, 0) rotate(${valToAngle(v)}deg)`;
+  }
+  setVal(parseInt(input.value,10));
+  let dragging=false;
+  function onMove(e){ if(!dragging) return; const rect = knob.getBoundingClientRect(); const cx = rect.left + rect.width/2; const cy = rect.top + rect.height/2; const x = (e.touches? e.touches[0].clientX : e.clientX) - cx; const y = (e.touches? e.touches[0].clientY : e.clientY) - cy; const ang = Math.atan2(y, x) * 180/Math.PI; let a = ang; if(a<-135) a=-135; if(a>135) a=135; setVal(angleToVal(a)); }
+  knob.addEventListener('mousedown', ()=>{dragging=true});
+  knob.addEventListener('touchstart', ()=>{dragging=true},{passive:true});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:true});
+  window.addEventListener('mouseup', ()=>{dragging=false});
+  window.addEventListener('touchend', ()=>{dragging=false});
+}
+
+document.querySelectorAll('.knob').forEach(initKnob);
+
+// --- Draggable Panel ---
+const panel = document.querySelector('.panel');
+if (panel) {
+  const handle = panel.querySelector('h3');
+  if (handle) {
+    let isDragging = false, startX, startY, startLeft, startTop;
+
+    handle.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return; // Only drag with left mouse button
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = panel.offsetLeft;
+      startTop = panel.offsetTop;
+      
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      e.preventDefault();
+    });
+
+    function onMouseMove(e) {
+      if (!isDragging) return;
+      const newLeft = startLeft + e.clientX - startX;
+      const newTop = startTop + e.clientY - startY;
+      panel.style.left = newLeft + 'px';
+      panel.style.top = newTop + 'px';
+      panel.style.right = 'auto'; // Let left/top take precedence
+    }
+
+    function onMouseUp() {
+      isDragging = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section>
+  <h2>Robots</h2>
+  {% if robots.len() == 0 %}
+    <p><em>尚無 profiles</em></p>
+  {% else %}
+    <ul>
+      {% for n in robots %}
+        <li>
+          <a href="/profiles/robots/{{ n }}">{{ n }}</a>
+          · <a href="/arm/robots/{{ n }}" title="圖像化編輯">Arm</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Teleoperators</h2>
+  {% if leaders.len() == 0 %}
+    <p><em>尚無 profiles</em></p>
+  {% else %}
+    <ul>
+      {% for n in leaders %}
+        <li>
+          <a href="/profiles/teleoperators/{{ n }}">{{ n }}</a>
+          · <a href="/arm/teleoperators/{{ n }}" title="圖像化編輯">Arm</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+
+<p>API 快速自測：<code>GET /api/ping</code>、<code>GET /healthz</code></p>
+{% endblock %}
